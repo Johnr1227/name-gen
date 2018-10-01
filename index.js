@@ -1,21 +1,39 @@
 const fs = require("fs");
-const readline = require("readline");
+const discord = require("discord.js");
 const CSVtoArray = require("csv-array");
 
+const auth = require("./auth.json");
 const START = "S1";
 const END = "E2";
+
+var client = new discord.Client();
 
 var syllables = [];
 var data = [];
 var realNames = [];
 
+var correctAnswer;
+var dataStates = {
+    NONE: 0,
+    NAME: 1,
+    AGE: 2,
+    GENDER: 3,
+    NATIONALITY: 4,
+    GENERATED: 5,
+    REAL_NAME: 6
+};
+dataState = dataStates.NONE;
+var user;
+var quizChannel;
+
 var questions = 0;
 
 var age = 0;
-var name = "";
+var userName = "";
 var gender = "";
 var nationality = "";
 
+var name = "Billy Bob Joe";
 var asked = 0;
 var correct = 0;
 
@@ -24,11 +42,6 @@ var correctGenerated = 0;
 
 var incorrectReal = 0;
 var incorrectGenerated = 0;
-
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
 
 console.clear();
 process.stdout.write("Running...");
@@ -40,40 +53,180 @@ CSVtoArray.parseCSV("names.csv", function(data) {
     clearInterval(loadingInterval);
     this.data = data;
     initSyllables(data);
-    // console.log("syllables", syllables);
     realNames = data.map(d => d.Name.toLowerCase());
     rareNames = data
         .sort((a, b) => parseInt(a.Count) - parseInt(b.Count))
-        .slice(0, data.length / 20)
+        .slice(0, data.length / 1)
         .map(d => d.Name.toLowerCase());
-    startQuiz();
+    client.login(auth.token);
 });
-function startQuiz() {
+
+client.on("ready", () => {
+    console.log("bot ready!");
+});
+client.on("message", message => {
+    //console.log(dataState);
+    var channel = message.channel;
+    var channelID = channel.id;
+    if (message.guild === null) {
+        sendMessage(channel, "`pls don't try to DM me ;-;`");
+    } else {
+        if (message.content.startsWith(":")) {
+            var args = message.content.substring(1).split(" ");
+            var cmd = args[0];
+            args = args.splice(1);
+            switch (cmd) {
+                case "startQuiz":
+                    if (args && args.length > 0) {
+                        var int = parseInt(args[0]);
+                        if (int === NaN) {
+                            message.channel.send(
+                                "`must be an integer (no decimals!)`"
+                            );
+                        } else {
+                            questions = int;
+                            message.channel.send("`what's your name?`");
+                            quizChannel = channelID;
+                            console.log(this.channel);
+                            dataState = dataStates.NAME;
+                            user = message.author.id;
+                        }
+                    } else {
+                        message.channel.send("`Not enough arguments :p`");
+                    }
+                    break;
+            }
+        } else if (
+            !dataState == dataStates.NONE &&
+            message.author.id === user
+        ) {
+            switch (dataState) {
+                case dataStates.NAME:
+                    userName = message.content;
+                    message.channel.send("`how old are you?`");
+                    dataState = dataStates.AGE;
+                    break;
+                case dataStates.AGE:
+                    age = parseInt(message.content);
+                    if (age === NaN) {
+                        message.channel.send("`age must be an integer :3`");
+                    } else {
+                        message.channel.send("`what is your gender? (M/F/X)`");
+                        dataState = dataStates.GENDER;
+                    }
+                    break;
+                case dataStates.GENDER:
+                    var response = message.content.toUpperCase();
+                    if (
+                        response === "M" ||
+                        response === "F" ||
+                        response === "X"
+                    ) {
+                        gender = response;
+                        dataState = dataStates.NATIONALITY;
+                        message.channel.send("`what's your nationality?`");
+                    } else {
+                        message.channel.send(
+                            "`please choose from M for male, F for female, or X for other!`"
+                        );
+                    }
+                    break;
+                case dataStates.NATIONALITY:
+                    nationality = message.content.toUpperCase();
+                    message.channel.send(
+                        "`starting quiz of length " +
+                            questions +
+                            "! Good luck!` :blue_heart:"
+                    );
+                    dataState = dataStates.NONE;
+
+                    startQuiz(message);
+                    break;
+                case dataStates.GENERATED:
+                    asked++;
+                    if (asked > questions) {
+                        if (message.content === "n") {
+                            correct++;
+                            correctGenerated++;
+                            message.channel.send("Correct!");
+                        } else {
+                            incorrectGenerated++;
+                            message.channel.send("**WRONG!**");
+                        }
+                        message.channel.send(
+                            "`Game over! Your score is " +
+                                correct +
+                                " out of " +
+                                questions +
+                                "!`"
+                        );
+                        dataState = dataStates.NONE;
+                        writeToJSON();
+                    } else {
+                        nextRandomName();
+                        if (message.content === "n") {
+                            correct++;
+                            correctGenerated++;
+                            message.channel.send(
+                                "Correct! Is " + name + " a real name? (y/n)"
+                            );
+                        } else {
+                            incorrectGenerated++;
+                            message.channel.send(
+                                "**WRONG!** Is " + name + " a real name? (y/n)"
+                            );
+                        }
+                    }
+                    break;
+                case dataStates.REAL_NAME:
+                    asked++;
+                    if (asked >= questions) {
+                        if (message.content === "y") {
+                            correct++;
+                            correctReal++;
+                            message.channel.send("Correct!");
+                        } else {
+                            incorrectReal++;
+                            message.channel.send("**WRONG!**");
+                        }
+                        message.channel.send(
+                            "`Game over! Your score is " +
+                                correct +
+                                " out of " +
+                                questions +
+                                "!`"
+                        );
+                        dataState = dataStates.NONE;
+                        writeToJSON();
+                    } else {
+                        nextRandomName();
+                        if (message.content === "y") {
+                            correct++;
+                            correctReal++;
+                            message.channel.send(
+                                "Correct! Is " + name + " a real name? (y/n)"
+                            );
+                        } else {
+                            incorrectReal++;
+                            message.channel.send(
+                                "**WRONG!** Is " + name + " a real name? (y/n)"
+                            );
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+});
+function startQuiz(message) {
     incorrectGenerated = 0;
     correctGenerated = 0;
     incorrectReal = 0;
     correctReal = 0;
     asked = 0;
     correct = 0;
-    rl.question("what's your name? ", answer => {
-        name = answer;
-        rl.question("how old are you? ", answer => {
-            age = answer;
-            rl.question("what is your nationality? ", answer => {
-                nationality = answer;
-                rl.question("what is your gender? (M/F/X) ", answer => {
-                    gender = answer;
-                    rl.question(
-                        "how many questions should there be? ",
-                        answer => {
-                            questions = parseInt(answer);
-                            question();
-                        }
-                    );
-                });
-            });
-        });
-    });
+    nextRandomName();
+    message.channel.send("Is " + name + " a real name?");
 }
 function writeToJSON() {
     fs.readFile("data.json", "utf8", function readFileCallback(err, data) {
@@ -82,7 +235,7 @@ function writeToJSON() {
         } else {
             var obj = JSON.parse(data);
             obj.data.push({
-                name: name,
+                name: userName,
                 age: age,
                 gender: gender,
                 nationality: nationality,
@@ -102,56 +255,14 @@ function writeToJSON() {
         }
     });
 }
-function question() {
-    var correctAnswer;
+function nextRandomName() {
     if (Math.random() > 0.5) {
-        correctAnswer = "g";
-        var name = generateName(Math.floor(Math.random() * 3) + 2);
+        name = generateName(Math.floor(Math.random() * 3) + 2);
+        dataState = dataStates.GENERATED;
     } else {
-        correctAnswer = "r";
-        var name = rareNames[Math.floor(Math.random() * rareNames.length)];
+        name = rareNames[Math.floor(Math.random() * rareNames.length)];
+        dataState = dataStates.REAL_NAME;
     }
-    rl.question(
-        "is " + name + " a real name, or a computer generated name? (r/g)\n",
-        answer => {
-            asked++;
-            if (answer === correctAnswer) {
-                correct++;
-                if (correctAnswer === "g") {
-                    correctGenerated++;
-                } else {
-                    correctReal++;
-                }
-                console.log("CORRECT! Your correct is " + correct);
-            } else {
-                console.log("WRONG!!! the correct answer is " + correctAnswer);
-                if (correctAnswer === "g") {
-                    incorrectGenerated++;
-                } else {
-                    incorrectReal++;
-                }
-            }
-            if (asked === questions) {
-                writeToJSON();
-                console.log("Quiz over! Your correct is " + correct);
-                setTimeout(function() {
-                    rl.question(
-                        "would you like to play again? (y/n) ",
-                        answer => {
-                            if (answer === "y") {
-                                startQuiz();
-                            } else {
-                                console.log("done!");
-                                rl.close();
-                            }
-                        }
-                    );
-                }, 2000);
-            } else {
-                question();
-            }
-        }
-    );
 }
 function initSyllables(data) {
     process.stdout.write("Initializing syllables...");
@@ -240,4 +351,8 @@ function getNext(prev) {
         console.log("prev is " + prev);
         throw e;
     }
+}
+
+function sendMessageToID(channelID, message) {
+    client.channels.get(channelID).send(message);
 }

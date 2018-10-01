@@ -41,6 +41,34 @@
                 "correctGenerated": 7,
                 "incorrectGenerated": 2
             }
+        },
+        {
+            "name": "Ashley",
+            "age": 12,
+            "gender": "F",
+            "nationality": "US",
+            "quiz": {
+                "asked": 10,
+                "correct": 4,
+                "correctReal": 2,
+                "incorrectReal": 2,
+                "correctGenerated": 2,
+                "incorrectGenerated": 4
+            }
+        },
+        {
+            "name": "Ashley",
+            "age": 12,
+            "gender": "F",
+            "nationality": "US",
+            "quiz": {
+                "asked": 10,
+                "correct": 6,
+                "correctReal": 3,
+                "incorrectReal": 2,
+                "correctGenerated": 3,
+                "incorrectGenerated": 3
+            }
         }
     ]
 }
