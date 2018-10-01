@@ -41,6 +41,20 @@
                 "correctGenerated": 7,
                 "incorrectGenerated": 2
             }
+        },
+        {
+            "name": "John",
+            "age": 12,
+            "gender": "M",
+            "nationality": "US",
+            "quiz": {
+                "asked": 30,
+                "correct": 19,
+                "correctReal": 14,
+                "incorrectReal": 4,
+                "correctGenerated": 5,
+                "incorrectGenerated": 8
+            }
         }
     ]
 }
