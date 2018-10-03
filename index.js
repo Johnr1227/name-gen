@@ -59,7 +59,7 @@ process.stdout.write("Running...");
 var loadingInterval = setInterval(function() {
     process.stdout.write(".");
 }, 1500);
-CSVtoArray.parseCSV("names.csv", function(data) {
+CSVtoArray.parseCSV("dog-names.csv", function(data) {
     console.log("\n\nLoaded names.csv...\n");
     clearInterval(loadingInterval);
     this.data = data;
