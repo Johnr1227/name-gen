@@ -1,7 +1,10 @@
 {
-    "scripts": { "start": "node index.js" },
+    "scripts": {
+        "start": "node index.js"
+    },
     "dependencies": {
         "csv-array": "0.0.22",
-        "discord.js": "^11.4.2"
+        "discord.js": "^11.4.2",
+        "express": "^4.16.3"
     }
 }
