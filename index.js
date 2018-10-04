@@ -19,7 +19,7 @@ const END = "E2";
 
 var client = new discord.Client();
 
-var syllables = [];
+var syllables = {};
 var data = [];
 var realNames = [];
 
@@ -59,16 +59,36 @@ process.stdout.write("Running...");
 var loadingInterval = setInterval(function() {
     process.stdout.write(".");
 }, 1500);
-CSVtoArray.parseCSV("dog-names.csv", function(data) {
-    console.log("\n\nLoaded names.csv...\n");
+
+var dataset = "names";
+readData(dataset + ".json")
+.catch(function(err) {
+    console.log("\nNo previous data found...\n");
+    return new Promise(function(resolve,reject) {
+        CSVtoArray.parseCSV(dataset + ".csv", function(data) {
+            console.log("\n\nLoaded names.csv...\n");
+            clearInterval(loadingInterval);
+            var syls = initSyllables(data);
+            var realNames = data.map(d => d.Name.toLowerCase());
+            var rareNames = data
+                .sort((a, b) => parseInt(a.Count) - parseInt(b.Count))
+                .slice(0, data.length / 1)
+                .map(d => d.Name.toLowerCase());
+            var obj = {e: realNames, 
+                a: rareNames, 
+                y: syls};
+            writeData(obj, dataset + ".json");
+            resolve(obj);
+        });    
+    });
+})
+.then(function(data){
+    console.log("\nData Ready...\n");
     clearInterval(loadingInterval);
-    this.data = data;
-    initSyllables(data);
-    realNames = data.map(d => d.Name.toLowerCase());
-    rareNames = data
-        .sort((a, b) => parseInt(a.Count) - parseInt(b.Count))
-        .slice(0, data.length / 1)
-        .map(d => d.Name.toLowerCase());
+
+    realNames = data.e;
+    rareNames = data.a;
+    syllables = data.y;
     client.login(auth.token);
 });
 
@@ -239,6 +259,26 @@ function startQuiz(message) {
     nextRandomName();
     message.channel.send("Is " + name + " a real name?");
 }
+
+function readData(filename) {
+    return new Promise(function(resolve, reject) {
+        fs.readFile(filename, "utf8", function(err, data) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(JSON.parse(data));
+            }
+        });
+    });
+}
+
+function writeData(data, filename) {
+    var json = JSON.stringify(data);
+    fs.writeFile(filename, json, "utf8", function() {
+        console.log("Saved data to " + filename);
+    });
+}
+
 function writeToJSON() {
     fs.readFile("data.json", "utf8", function readFileCallback(err, data) {
         if (err) {
@@ -277,6 +317,7 @@ function nextRandomName() {
 }
 function initSyllables(data) {
     process.stdout.write("Initializing syllables...");
+    var localSyllables = {};
     loadingInterval = setInterval(function() {
         process.stdout.write(".");
     }, 1500);
@@ -287,28 +328,29 @@ function initSyllables(data) {
         // for each syllable in the name
         for (var j = syls.length - 1; j >= 0; j--) {
             // if that syllable exists in the data already, push
-            if (syllables[syls[j]]) {
-                syllables[syls[j]].data.push(next);
+            if (localSyllables[syls[j]]) {
+                localSyllables[syls[j]].data.push(next);
             } else {
-                syllables[syls[j]] = {
+                localSyllables[syls[j]] = {
                     syllable: syls[j],
                     data: [next]
                 };
             }
             next = syls[j];
         }
-        if (!syllables[START]) {
-            syllables[START] = { syllable: START, data: [syls[0]] };
+        if (!localSyllables[START]) {
+            localSyllables[START] = { syllable: START, data: [syls[0]] };
         } else {
             if (!syls[0]) {
                 console.log("BAD DATA " + syls[0]);
                 console.log("data " + data[i]);
             }
-            syllables[START].data.push(syls[0]);
+            localSyllables[START].data.push(syls[0]);
         }
     }
     clearInterval(loadingInterval);
     console.clear();
+    return localSyllables;
 }
 function generateName(length) {
     do {
