@@ -90,6 +90,7 @@ readData(dataset + ".json")
     rareNames = data.a;
     syllables = data.y;
     client.login(auth.token);
+    console.log("N1", generateName(5));
 });
 
 client.on("ready", () => {
@@ -328,24 +329,37 @@ function initSyllables(data) {
         // for each syllable in the name
         for (var j = syls.length - 1; j >= 0; j--) {
             // if that syllable exists in the data already, push
-            if (localSyllables[syls[j]]) {
-                localSyllables[syls[j]].data.push(next);
+            if (!localSyllables[syls[j]]) {
+                localSyllables[syls[j]] = {d: {}};
+            }
+            if (localSyllables[syls[j]].d[next]) {
+                localSyllables[syls[j]].d[next]++
             } else {
-                localSyllables[syls[j]] = {
-                    syllable: syls[j],
-                    data: [next]
-                };
+                localSyllables[syls[j]].d[next]=1
             }
             next = syls[j];
         }
         if (!localSyllables[START]) {
-            localSyllables[START] = { syllable: START, data: [syls[0]] };
+            localSyllables[START] = {d: {}};
+        } 
+        if (!syls[0]) {
+            console.log("BAD DATA " + syls[0]);
+            console.log("data " + data[i]);
+        }
+        if (localSyllables[START].d[syls[0]]) {
+            localSyllables[START].d[syls[0]]++
         } else {
-            if (!syls[0]) {
-                console.log("BAD DATA " + syls[0]);
-                console.log("data " + data[i]);
+            localSyllables[START].d[syls[0]]=1
+        }
+    }
+    for (const prop in localSyllables) {
+        if (localSyllables.hasOwnProperty(prop)) {     
+            localSyllables[prop].sum=0;       
+            for (const nxt in localSyllables[prop].d) {
+                if (localSyllables[prop].d.hasOwnProperty(nxt)) {
+                    localSyllables[prop].sum+=localSyllables[prop].d[nxt];
+                } 
             }
-            localSyllables[START].data.push(syls[0]);
         }
     }
     clearInterval(loadingInterval);
@@ -382,9 +396,16 @@ function getSyllables(word) {
 function getNext(prev) {
     try {
         var index = Math.floor(
-            Math.random() * (syllables[prev].data.length - 1)
+            Math.random() * (syllables[prev].sum - 1)
         );
-        var next = syllables[prev].data[index];
+        var next = "";
+            for (const nxt in syllables[prev].d) {
+                next = nxt;
+                if (syllables[prev].d.hasOwnProperty(nxt)) {
+                    index-=syllables[prev].d[nxt];
+                    if (index <= 0) break;
+                } 
+            }
         if (!next) {
             console.log(
                 "next is falsey " +
